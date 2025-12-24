@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SleepWell • Sono Tranquilo</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#05070a">
+
+    <style>
+        :root {
+            --bg: #05070a;
+            --card: rgba(30, 35, 60, 0.7);
+            --primary: #a582ff;
+            --secondary: #70d6ff;
+            --gold: #ffd700;
+            --text: #ffffff;
+        }
+
+        body {
+            margin: 0; font-family: 'Inter', -apple-system, sans-serif;
+            background: radial-gradient(circle at top, #141833 0%, var(--bg) 100%);
+            color: var(--text); min-height: 100vh;
+        }
+
+        .app-container { max-width: 450px; margin: 0 auto; padding: 20px; }
+
+        header { text-align: center; padding: 30px 0; }
+        .logo { font-size: 32px; font-weight: 900; letter-spacing: -1px; background: linear-gradient(135deg, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .card {
+            background: var(--card); border-radius: 28px; padding: 22px;
+            margin-bottom: 20px; backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+        }
+
+        /* Banner de Venda */
+        .premium-banner {
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            border-radius: 24px; padding: 20px; margin-bottom: 25px;
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; box-shadow: 0 8px 20px rgba(168, 85, 247, 0.3);
+        }
+
+        .score-display { font-size: 80px; font-weight: 900; color: var(--primary); line-height: 1; margin: 15px 0; }
+
+        .audio-controls { display: flex; gap: 12px; margin-top: 15px; }
+        .btn-audio { 
+            flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); 
+            color: white; padding: 15px; border-radius: 16px; cursor: pointer; transition: 0.3s;
+        }
+        .btn-audio.active { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 15px rgba(165,130,255,0.4); }
+
+        .btn-main {
+            width: 100%; padding: 22px; border-radius: 24px; border: none;
+            font-size: 18px; font-weight: 800; cursor: pointer;
+            background: #ffffff; color: #000; box-shadow: 0 10px 25px rgba(255,255,255,0.1);
+        }
+
+        /* Modal de Checkout */
+        #checkoutModal {
+            display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+            background:rgba(0,0,0,0.95); z-index:9999; justify-content:center; align-items:center; padding:20px;
+        }
+
+        footer { text-align: center; opacity: 0.4; font-size: 11px; padding: 40px 0; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <div class="logo">SleepWell</div>
+        <div style="font-size: 12px; opacity: 0.6; letter-spacing: 2px;">SONO TRANQUILO</div>
+    </header>
+
+    <div id="promoBanner" class="premium-banner" onclick="openCheckout()">
+        <div>
+            <div style="font-weight: 800; font-size: 18px;">Assinar Premium</div>
+            <div style="font-size: 13px; opacity: 0.9;">Relatórios e Sons HD</div>
+        </div>
+        <span style="background: #fff; color: #000; padding: 8px 16px; border-radius: 50px; font-size: 13px; font-weight: 800;">OBTER</span>
+    </div>
+
+    <div class="card">
+        <div style="opacity: 0.6; font-size: 12px; text-transform: uppercase;">Qualidade do Sono</div>
+        <div id="score" class="score-display">--</div>
+        <div id="status" style="color: var(--secondary); font-weight: 600;">Toque em simular para iniciar</div>
+    </div>
+
+    <div class="card">
+        <div style="font-weight: 700; margin-bottom: 15px;">Auxiliar de Relaxamento</div>
+        <div class="audio-controls">
+            <button class="btn-audio" onclick="toggleAudio('rain', this)">🌧️ Chuva</button>
+            <button class="btn-audio" onclick="toggleAudio('white', this)">💨 Ruído</button>
+        </div>
+        <audio id="audioRain" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"></audio>
+    </div>
+
+    <div class="card">
+        <canvas id="mainChart" height="150"></canvas>
+    </div>
+
+    <button class="btn-main" onclick="processSleep()">Simular Noite de Sono</button>
+    
+    <footer>© 2025 SleepWell Technology • Versão 3.0 PRO</footer>
+</div>
+
+<div id="checkoutModal">
+    <div class="card" style="max-width:380px; text-align:center; border: 2px solid var(--primary);">
+        <div style="font-size:40px;">👑</div>
+        <h2 style="color:var(--gold); margin:10px 0;">SleepWell PRO</h2>
+        <p style="font-size:14px; opacity:0.8;">Desbloqueie o monitoramento avançado e durma melhor hoje mesmo.</p>
+        <div style="font-size:28px; font-weight:800; margin:25px 0;">R$ 29,90</div>
+        
+        <button class="btn-main" id="payButton" style="background:var(--primary); color:white;">
+            PAGAR AGORA
+        </button>
+        <button onclick="closeCheckout()" style="background:transparent; color:white; border:none; margin-top:20px; opacity:0.5; cursor:pointer;">Cancelar</button>
+    </div>
+</div>
+
+<script>
+    // --- CREDENCIAIS (SUBSTITUA AQUI) ---
+    const SUPABASE_URL = 'COLE_SUA_URL_AQUI';
+    const SUPABASE_KEY = 'COLE_SUA_CHAVE_ANON_AQUI';
+    const STRIPE_PK = 'COLE_SUA_PK_STRIPE_AQUI';
+
+    const supabase = (SUPABASE_URL !== 'COLE_SUA_URL_AQUI') ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+    let chart;
+    let history = [60, 75, 70, 80, 85, 82, 90];
+
+    // Inicialização do Gráfico
+    function initChart() {
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'],
+                datasets: [{
+                    data: history,
+                    borderColor: '#a582ff',
+                    backgroundColor: 'rgba(165,130,255,0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: { 
+                plugins: { legend: { display: false } },
+                scales: { y: { display: false, min: 0, max: 100 }, x: { grid: { display: false }, ticks: { color: '#555' } } }
+            }
+        });
+    }
+
+    // Lógica de Áudio
+    function toggleAudio(type, btn) {
+        const audio = document.getElementById('audioRain');
+        if (audio.paused) {
+            audio.play();
+            btn.classList.add('active');
+        } else {
+            audio.pause();
+            btn.classList.remove('active');
+        }
+    }
+
+    // Lógica de Pagamento
+    function openCheckout() { document.getElementById('checkoutModal').style.display = 'flex'; }
+    function closeCheckout() { document.getElementById('checkoutModal').style.display = 'none'; }
+
+    document.getElementById('payButton').addEventListener('click', function() {
+        this.innerText = "Processando...";
+        // Simulação de transação bem sucedida
+        setTimeout(() => {
+            localStorage.setItem('sleepwell_pro', 'true');
+            alert("Pagamento aprovado! Aproveite o SleepWell Pro.");
+            checkPremiumStatus();
+            closeCheckout();
+        }, 1500);
+    });
+
+    function checkPremiumStatus() {
+        if(localStorage.getItem('sleepwell_pro') === 'true') {
+            document.getElementById('promoBanner').style.display = 'none';
+            document.getElementById('status').innerText = "✨ Usuário Premium";
+        }
+    }
+
+    // Processamento de Dados + Backend
+    async function processSleep() {
+        const score = Math.floor(Math.random() * (99 - 80 + 1)) + 80;
+        document.getElementById('score').innerText = score;
+        
+        history.shift();
+        history.push(score);
+        chart.update();
+
+        // Enviar para Backend Real
+        if (supabase) {
+            await supabase.from('sleep_logs').insert([{ score: score }]);
+            console.log("Dados sincronizados com a nuvem.");
+        }
+    }
+
+    window.onload = () => {
+        initChart();
+        checkPremiumStatus();
+    };
+</script>
+</body>
+</html>
